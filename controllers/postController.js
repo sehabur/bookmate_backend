@@ -1,19 +1,114 @@
 const createError = require('http-errors');
 const { validationResult } = require('express-validator');
+const fs = require('fs');
+const url = require('url');
+const path = require('path');
 
 const Post = require('../models/postModel');
+const User = require('../models/userModel');
+const e = require('express');
 
 /*
-  @api:       GET /api/posts/
+  @api:       GET /api/posts?user={user}&limit={limit}
   @desc:      get all posts
   @access:    public
 */
 const getRecentPosts = async (req, res, next) => {
   try {
-    const posts = await Post.find({})
+    const { user: userId, limit } = url.parse(req.url, true).query;
+
+    const posts = await Post.find({ user: { $ne: userId }, isActive: true })
       .select({ __v: 0 })
       .sort({ updatedAt: 'desc' })
-      .limit(40);
+      .limit(limit);
+    if (posts) {
+      res.json({ posts });
+    } else {
+      const error = createError(404, 'No Posts Found');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'No Posts Found');
+    next(error);
+  }
+};
+
+/*
+  @api:       GET /api/posts/byQuery?user={user}&limit={limit}&date={asc}&search={himu}..
+  @desc:      get posts by query
+  @access:    public
+*/
+const getPostsByQuery = async (req, res, next) => {
+  console.log(url.parse(req.url, true).query);
+  try {
+    const {
+      user: userId,
+      limit,
+      date: sortByDate,
+      price: sortByPrice,
+      division,
+      district,
+      area,
+      exchangeOffer,
+      sellOffer,
+      search,
+      category,
+    } = url.parse(req.url, true).query;
+
+    let secondaryFilter = {};
+
+    if (division) {
+      secondaryFilter.division = division;
+    } else if (district) {
+      secondaryFilter.district = district;
+    } else if (area) {
+      secondaryFilter.area = area;
+    }
+
+    if (category && category !== 'All') {
+      secondaryFilter.category = category;
+    }
+
+    if (!(exchangeOffer && sellOffer)) {
+      if (exchangeOffer) {
+        secondaryFilter.enableExchangeOffer = true;
+      } else {
+        secondaryFilter.enableExchangeOffer = false;
+      }
+
+      if (sellOffer) {
+        secondaryFilter.enableSellOffer = true;
+      } else {
+        secondaryFilter.enableSellOffer = false;
+      }
+    }
+
+    if (search) {
+      secondaryFilter.$or = [
+        { title: new RegExp(search, 'i') },
+        { writer: new RegExp(search, 'i') },
+      ];
+    }
+
+    let sortingMap = {};
+
+    if (sortByDate) {
+      sortingMap = { updatedAt: sortByDate };
+    } else if (sortByPrice) {
+      sortingMap = { price: sortByPrice };
+    } else {
+      sortingMap = { updatedAt: 'desc' };
+    }
+
+    const posts = await Post.find({
+      user: { $ne: userId },
+      isActive: true,
+      ...secondaryFilter,
+    })
+      .select({ __v: 0 })
+      .sort(sortingMap)
+      .limit(limit);
+
     if (posts) {
       res.json({ posts });
     } else {
@@ -33,7 +128,10 @@ const getRecentPosts = async (req, res, next) => {
 */
 const getPostById = async (req, res, next) => {
   try {
-    const post = await Post.findById(req.params.id).select('-__v');
+    const post = await Post.findById(req.params.id)
+      .select('-__v')
+      .populate('user', '-password -isAdmin -isVerified -savedItems -__v');
+
     if (post) {
       // setTimeout(() => {
       //   res.json({ post });
@@ -57,15 +155,42 @@ const getPostById = async (req, res, next) => {
 */
 const getPostsByUser = async (req, res, next) => {
   try {
-    const posts = await Post.find({ user: req.params.id }).select('-__v');
-    if (posts.length > 0) {
-      res.status(200).json({ posts });
+    const user = await User.findById(req.params.id)
+      .select('-password -__v')
+      .populate({
+        path: 'posts',
+        options: { sort: { createdAt: -1 } },
+      });
+    res.status(200).json({ user });
+  } catch (err) {
+    const error = createError(500, 'No User/Post Found');
+    next(error);
+  }
+};
+
+/*
+  @api:       GET /api/posts/saved/user/:id
+  @desc:      get all posts of a user
+  @access:    private
+*/
+const getSavedPosts = async (req, res, next) => {
+  try {
+    console.log(req.params.id);
+    const posts = await User.findById(req.params.id)
+      .select('savedItems')
+      .populate({
+        path: 'savedItems',
+        select: '-__v',
+        options: { sort: { updatedAt: 'desc' } },
+      });
+    if (posts) {
+      res.json({ posts });
     } else {
-      const error = createError(404, 'No Post Found for this user');
+      const error = createError(404, 'No Posts Found');
       next(error);
     }
   } catch (err) {
-    const error = createError(500, 'No Post Found');
+    const error = createError(500, 'No Posts Found');
     next(error);
   }
 };
@@ -82,34 +207,123 @@ const createPost = async (req, res, next) => {
     if (!errors.isEmpty()) {
       return res.status(400).json(errors);
     }
+    const {
+      category,
+      writer,
+      title,
+      description,
+      price,
+      district,
+      area,
+      division,
+      enableSellOffer,
+      enableExchangeOffer,
+    } = req.body;
 
     const newPost = new Post({
-      category: req.body.category,
-      subCategory: req.body.subCategory,
-      title: req.body.title,
-      description: req.body.description,
-      price: req.body.price,
-      image1: req.body.image1,
-      image2: req.body.image2,
-      image3: req.body.image3,
-      division: req.body.division,
-      district: req.body.district,
-      area: req.body.area,
-      enableExchangeOffer: req.body.enableExchangeOffer,
+      category,
+      writer,
+      title,
+      description,
+      image1: req.files.image1 ? req.files.image1[0].filename : null,
+      image2: req.files.image2 ? req.files.image2[0].filename : null,
+      image3: req.files.image3 ? req.files.image3[0].filename : null,
+      price,
+      division,
+      district,
+      area,
+      enableSellOffer,
+      enableExchangeOffer,
       user: req.user.id,
     });
+
     const createdNewPost = await newPost.save();
+
+    await User.findOneAndUpdate(
+      { _id: req.user.id },
+      { $push: { posts: createdNewPost.id } }
+    );
+
     res
       .status(201)
       .json({ message: 'Post created successfully', post: createdNewPost });
   } catch (err) {
+    if (req.files) {
+      req.files.image1 &&
+        fs.unlink(req.files.image1[0].path, (err) => {
+          console.error(err);
+        });
+      req.files.image2 &&
+        fs.unlink(req.files.image2[0].path, (err) => {
+          console.error(err);
+        });
+      req.files.image3 &&
+        fs.unlink(req.files.image3[0].path, (err) => {
+          console.error(err);
+        });
+    }
     const error = createError(400, err.message);
     next(error);
   }
 };
 
 /*
-  @api:       PUT /api/posts/:id
+  @api:       PATCH /api/posts/savePost/:id
+  @desc:      Save a post for later
+  @access:    private
+*/
+const savePostForLater = async (req, res, next) => {
+  try {
+    const action = url.parse(req.url, true).query.action;
+    if (action === 'save') {
+      await User.findOneAndUpdate(
+        { _id: req.user.id },
+        { $push: { savedItems: req.params.id } }
+      );
+      res.status(201).json({ message: 'User update successful' });
+    } else if (action === 'delete') {
+      await User.findOneAndUpdate(
+        { _id: req.user.id },
+        { $pull: { savedItems: req.params.id } }
+      );
+      res.status(201).json({ message: 'User update successful' });
+    } else {
+      const error = createError(400, 'User update failed');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(400, 'User update failed');
+    next(error);
+  }
+};
+
+/*
+  @api:       PATCH /api/posts/removeImage/:id?image={image}
+  @desc:      Remove an image from a post
+  @access:    private
+*/
+const removeImageUrl = async (req, res, next) => {
+  try {
+    const postId = req.params.id;
+    const imageNum = url.parse(req.url, true).query.image;
+
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { [imageNum]: null },
+      { new: true }
+    );
+    res.status(201).json({
+      message: 'Post edited successfuly',
+      updatedPost,
+    });
+  } catch (err) {
+    const error = createError(400, 'Update failed');
+    next(error);
+  }
+};
+
+/*
+  @api:       PATCH /api/posts/:id
   @desc:      Edit a post
   @access:    private
 */
@@ -124,20 +338,34 @@ const editPost = async (req, res, next) => {
 
     if (post) {
       if (post.user.toString() === req.user.id) {
+        const {
+          category,
+          writer,
+          title,
+          description,
+          price,
+          division,
+          district,
+          area,
+          enableSellOffer,
+          enableExchangeOffer,
+        } = req.body;
+
         const updatedPost = await post
           .update({
-            category: req.body.category,
-            subCategory: req.body.subCategory,
-            title: req.body.title,
-            description: req.body.description,
-            price: req.body.price,
-            image1: req.body.image1,
-            image2: req.body.image2,
-            image3: req.body.image3,
-            division: req.body.division,
-            district: req.body.district,
-            area: req.body.area,
-            enableExchangeOffer: req.body.enableExchangeOffer,
+            category,
+            writer,
+            title,
+            description,
+            image1: buildImagePath('image1', req),
+            image2: buildImagePath('image2', req),
+            image3: buildImagePath('image3', req),
+            price,
+            division,
+            district,
+            area,
+            enableSellOffer,
+            enableExchangeOffer,
           })
           .exec();
         res.status(201).json({
@@ -152,6 +380,56 @@ const editPost = async (req, res, next) => {
     } else {
       res.status(400).json({
         message: 'Post edit failed as post not found',
+      });
+    }
+  } catch (err) {
+    if (req.files) {
+      req.files.image1 &&
+        fs.unlink(req.files.image1[0].path, (err) => {
+          console.error(err);
+        });
+      req.files.image2 &&
+        fs.unlink(req.files.image2[0].path, (err) => {
+          console.error(err);
+        });
+      req.files.image3 &&
+        fs.unlink(req.files.image3[0].path, (err) => {
+          l;
+          console.error(err);
+        });
+    }
+    const error = createError(400, err.message);
+    next(error);
+  }
+};
+
+/*
+  @api:       PATCH /api/posts/deactivatePost/:id
+  @desc:      Deactivate a post
+  @access:    private
+*/
+const deactivatePost = async (req, res, next) => {
+  try {
+    const isActive = Number(url.parse(req.url, true).query.active);
+    const post = await Post.findById(req.params.id);
+    if (post) {
+      if (post.user.toString() === req.user.id) {
+        const updatedPost = await post
+          .update({
+            isActive: isActive === 0 ? false : true,
+          })
+          .exec();
+        res.status(201).json({
+          message: 'Post deactivated successfuly',
+        });
+      } else {
+        res.status(401).json({
+          message: 'Post deactivate failed',
+        });
+      }
+    } else {
+      res.status(400).json({
+        message: 'Post deactivate failed as post not found',
       });
     }
   } catch (err) {
@@ -180,7 +458,7 @@ const deletePost = async (req, res, next) => {
             postId,
           });
         } else {
-          res.status(401).json({
+          res.status(400).json({
             message: 'Post deletion failed',
           });
         }
@@ -200,11 +478,52 @@ const deletePost = async (req, res, next) => {
   }
 };
 
+/*
+  @api:       DELETE /api/posts/file/:name
+  @desc:      Delete a file by its name
+  @access:    private
+*/
+const deleteFileByName = async (req, res, next) => {
+  const fileName = req.params.name;
+  fs.unlink(`public\\images\\${fileName}`, (err) => {
+    if (err) {
+      const error = createError(400, err.message);
+      next(error);
+    } else {
+      res.status(200).json({
+        message: 'File deletion successful',
+        fileName,
+      });
+    }
+  });
+};
+
+/*
+  Helper Functions
+*/
+const buildImagePath = (imageNum, req) => {
+  let image;
+  if (req.files[imageNum]) {
+    image = req.files[imageNum][0].filename;
+  } else if (req.body[imageNum]) {
+    image = req.body[imageNum];
+  } else {
+    image = null;
+  }
+  return image;
+};
+
 module.exports = {
   getRecentPosts,
+  getPostsByQuery,
   getPostById,
   getPostsByUser,
+  getSavedPosts,
   createPost,
+  savePostForLater,
+  removeImageUrl,
   editPost,
+  deactivatePost,
   deletePost,
+  deleteFileByName,
 };

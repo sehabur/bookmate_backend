@@ -6,7 +6,7 @@ const postSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-    subCategory: {
+    writer: {
       type: String,
       required: true,
     },
@@ -16,11 +16,10 @@ const postSchema = mongoose.Schema(
     },
     description: {
       type: String,
-      required: true,
     },
     price: {
       type: Number,
-      required: true,
+      default: 0,
     },
     image1: {
       type: String,
@@ -50,9 +49,21 @@ const postSchema = mongoose.Schema(
     long: {
       type: Number,
     },
+    enableSellOffer: {
+      type: Boolean,
+      default: true,
+    },
     enableExchangeOffer: {
       type: Boolean,
       default: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    isExchanged: {
+      type: Boolean,
+      default: false,
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,

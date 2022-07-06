@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 
 const User = require('../models/userModel');
+const Notification = require('../models/notificationModel');
 
 /*
   @api:       POST /api/users/login/
@@ -16,29 +17,21 @@ const login = async (req, res, next) => {
     const user = await User.findOne({ email });
 
     if (user) {
-      if (user.isVerified) {
-        bcrypt.compare(password, user.password, (err, result) => {
-          if (err) {
-            const error = createError(401, 'Login Failed');
-            next(error);
-          } else {
-            if (result) {
-              res.status(200).json({
-                message: 'Login successful',
-                user: {
-                  id: user.id,
-                  email,
-                  token: generateToken(user.id),
-                },
-              });
-            } else {
-              const error = createError(401, 'Password does not match');
-              next(error);
-            }
-          }
+      result = await bcrypt.compare(password, user.password);
+      if (result) {
+        res.status(200).json({
+          message: 'Login successful.',
+          user: {
+            id: user.id,
+            shopName: user.shopName,
+            email,
+            token: generateToken(user.id),
+            image: user.image,
+            isLoggedIn: true,
+          },
         });
       } else {
-        const error = createError(401, 'Email is not verified');
+        const error = createError(401, 'Password does not match.');
         next(error);
       }
     } else {
@@ -46,7 +39,7 @@ const login = async (req, res, next) => {
       next(error);
     }
   } catch (err) {
-    const error = createError(500, 'Unknown Error');
+    const error = createError(500, 'Login failed. Unknown Error');
     next(error);
   }
 };
@@ -64,13 +57,12 @@ const register = async (req, res, next) => {
       return res.status(400).json(errors);
     }
 
-    const { firstName, lastName, email, password } = req.body;
+    const { shopName, email, password } = req.body;
     const userExists = await User.findOne({ email });
 
     if (!userExists) {
       const newUser = await User.create({
-        firstName,
-        lastName,
+        shopName,
         email,
         password: encriptPassword(password),
       });
@@ -78,8 +70,7 @@ const register = async (req, res, next) => {
       res.status(201).json({
         message: 'User creation successful',
         user: {
-          firstName,
-          lastName,
+          shopName,
           email,
         },
       });
@@ -88,7 +79,7 @@ const register = async (req, res, next) => {
       next(error);
     }
   } catch (err) {
-    const error = createError(400, 'User creation failed');
+    const error = createError(400, 'Error occured');
     next(error);
   }
 };
@@ -101,7 +92,7 @@ const register = async (req, res, next) => {
 const getUserProfileById = async (req, res, next) => {
   try {
     const userId = req.params.id;
-    const user = await User.findOne({ id: userId }).select('-password -__v');
+    const user = await User.findById(userId).select('-password -__v');
 
     if (user) {
       res.status(200).json({ user });
@@ -116,19 +107,63 @@ const getUserProfileById = async (req, res, next) => {
 };
 
 /*
-  @api:       PUT /api/users/profile/:id
-  @desc:      update user profile of a specific user
+  @api:       GET /api/users/allUsers/
+  @desc:      get all user's profile 
+  @access:    private
+*/
+const getAllUserProfile = async (req, res, next) => {
+  try {
+    const users = await User.find().select('-password -__v').limit(20);
+    if (users) {
+      res.status(200).json({ users });
+    } else {
+      const error = createError(404, 'User not found');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'Unknown Error');
+    next(error);
+  }
+};
+
+/*
+  @api:       PATCH /api/users/profile/:id
+  @desc:      update user profile
   @access:    private
 */
 const updateUserProfile = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json(errors);
+    }
+
     const userId = req.params.id;
-    const { firstName, lastName, image, division, district, area } = req.body;
+    const { shopName, firstName, lastName, division, district, area } =
+      req.body;
+
+    let imageData;
+    if (req.file) {
+      imageData = req.file.filename;
+    } else if (req.body.image) {
+      imageData = req.body.image;
+    } else {
+      imageData = null;
+    }
 
     if (userId === req.user.id) {
       const userUpdate = await User.findOneAndUpdate(
         { id: userId },
-        { firstName, lastName, image, division, district, area },
+        {
+          shopName,
+          firstName,
+          lastName,
+          image: imageData,
+          division,
+          district,
+          area,
+        },
         { new: true }
       ).select('-password -__v');
 
@@ -148,9 +183,7 @@ const updateUserProfile = async (req, res, next) => {
 // Helper Functions //
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, {});
 };
 
 const encriptPassword = (password) => {
@@ -164,5 +197,6 @@ module.exports = {
   login,
   register,
   getUserProfileById,
+  getAllUserProfile,
   updateUserProfile,
 };

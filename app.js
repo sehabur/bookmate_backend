@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 
 const postRoute = require('./routes/postRoute');
 const userRoute = require('./routes/userRoute');
-// const orderRoute = require('./routes/orderRoute');
+const orderRoute = require('./routes/orderRoute');
 const {
   NotFoundHanlder,
   ErrorHanlder,
@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   );
   res.setHeader(
     'Access-Control-Allow-Methods',
-    'GET, POST, PATCH, DELETE, OPTIONS'
+    'GET, POST, PATCH, PUT, DELETE, OPTIONS'
   );
   next();
 });
@@ -33,7 +33,7 @@ app.use((req, res, next) => {
 // Routes //
 app.use('/api/posts/', postRoute);
 app.use('/api/users/', userRoute);
-// app.use('/api/orders/', orderRoute);
+app.use('/api/orders/', orderRoute);
 
 // catch 404 and forward to NotFoundHanlder //
 app.use(NotFoundHanlder);

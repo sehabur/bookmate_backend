@@ -32,6 +32,33 @@ const checkLogin = async (req, res, next) => {
   }
 };
 
+// No use of this function so far //
+const getUserIdFromToken = async (req, res, next) => {
+  try {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer')
+    ) {
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded) {
+        req.user.id = decoded.id;
+        next();
+      } else {
+        req.user.id = null;
+        next();
+      }
+    } else {
+      req.user.id = null;
+      next();
+    }
+  } catch (err) {
+    const error = createError(401, err.message);
+    next(error);
+  }
+};
+
+// No use of this function so far //
 const checkAuthorization = async (req, res, next) => {
   try {
     // later //
@@ -43,5 +70,4 @@ const checkAuthorization = async (req, res, next) => {
 
 module.exports = {
   checkLogin,
-  checkAuthorization,
 };

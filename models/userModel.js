@@ -2,9 +2,12 @@ const mongoose = require('mongoose');
 
 const userSchema = mongoose.Schema(
   {
-    firstName: {
+    shopName: {
       type: String,
       required: true,
+    },
+    firstName: {
+      type: String,
     },
     lastName: {
       type: String,
@@ -36,8 +39,33 @@ const userSchema = mongoose.Schema(
     },
     isVerified: {
       type: Boolean,
-      default: true,
+      default: false,
     },
+    exchangedCount: {
+      type: Number,
+      default: 0,
+    },
+    posts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Post',
+      },
+    ],
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Order',
+      },
+    ],
+    savedItems: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Post',
+      },
+    ],
   },
   {
     timestamps: true,
