@@ -7,6 +7,7 @@ const path = require('path');
 const Post = require('../models/postModel');
 const User = require('../models/userModel');
 const e = require('express');
+const { fileUploadToAwsS3 } = require('../middlewares/fileUpload');
 
 /*
   @api:       GET /api/posts?user={user}&limit={limit}
@@ -225,9 +226,15 @@ const createPost = async (req, res, next) => {
       writer,
       title,
       description,
-      image1: req.files.image1 ? req.files.image1[0].filename : null,
-      image2: req.files.image2 ? req.files.image2[0].filename : null,
-      image3: req.files.image3 ? req.files.image3[0].filename : null,
+      image1: req.files.image1
+        ? await uploadedImageName(req.files.image1[0])
+        : null,
+      image2: req.files.image2
+        ? await uploadedImageName(req.files.image2[0])
+        : null,
+      image3: req.files.image3
+        ? await uploadedImageName(req.files.image3[0])
+        : null,
       price,
       division,
       district,
@@ -248,20 +255,20 @@ const createPost = async (req, res, next) => {
       .status(201)
       .json({ message: 'Post created successfully', post: createdNewPost });
   } catch (err) {
-    if (req.files) {
-      req.files.image1 &&
-        fs.unlink(req.files.image1[0].path, (err) => {
-          console.error(err);
-        });
-      req.files.image2 &&
-        fs.unlink(req.files.image2[0].path, (err) => {
-          console.error(err);
-        });
-      req.files.image3 &&
-        fs.unlink(req.files.image3[0].path, (err) => {
-          console.error(err);
-        });
-    }
+    // if (req.files) {
+    //   req.files.image1 &&
+    //     fs.unlink(req.files.image1[0].path, (err) => {
+    //       console.error(err);
+    //     });
+    //   req.files.image2 &&
+    //     fs.unlink(req.files.image2[0].path, (err) => {
+    //       console.error(err);
+    //     });
+    //   req.files.image3 &&
+    //     fs.unlink(req.files.image3[0].path, (err) => {
+    //       console.error(err);
+    //     });
+    // }
     const error = createError(400, err.message);
     next(error);
   }
@@ -383,21 +390,6 @@ const editPost = async (req, res, next) => {
       });
     }
   } catch (err) {
-    if (req.files) {
-      req.files.image1 &&
-        fs.unlink(req.files.image1[0].path, (err) => {
-          console.error(err);
-        });
-      req.files.image2 &&
-        fs.unlink(req.files.image2[0].path, (err) => {
-          console.error(err);
-        });
-      req.files.image3 &&
-        fs.unlink(req.files.image3[0].path, (err) => {
-          l;
-          console.error(err);
-        });
-    }
     const error = createError(400, err.message);
     next(error);
   }
@@ -453,6 +445,11 @@ const deletePost = async (req, res, next) => {
         const deletePost = await Post.deleteOne({ _id: postId });
 
         if (deletePost.deletedCount === 1) {
+          const { image1, image2, image3 } = post;
+          await fileDeleteAwsS3(image1);
+          await fileDeleteAwsS3(image2);
+          await fileDeleteAwsS3(image3);
+
           res.status(200).json({
             message: 'Post deletion successful',
             postId,
@@ -501,10 +498,21 @@ const deleteFileByName = async (req, res, next) => {
 /*
   Helper Functions
 */
-const buildImagePath = (imageNum, req) => {
+
+const uploadedImageName = async (file) => {
+  try {
+    const imageUploadResult = await fileUploadToAwsS3(file);
+    return imageUploadResult.Key;
+  } catch (err) {
+    const error = createError(400, err.message);
+    next(error);
+  }
+};
+
+const buildImagePath = async (imageNum, req) => {
   let image;
   if (req.files[imageNum]) {
-    image = req.files[imageNum][0].filename;
+    image = await uploadedImageName(req.files[imageNum][0]);
   } else if (req.body[imageNum]) {
     image = req.body[imageNum];
   } else {

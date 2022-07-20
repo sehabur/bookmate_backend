@@ -12,7 +12,7 @@ const {
 
 const { checkLogin } = require('../middlewares/authMiddleware');
 
-const fileUpload = require('../middlewares/fileUpload');
+const { fileUpload, fileUploadToAwsS3 } = require('../middlewares/fileUpload');
 const {
   registerValidationMiddleware,
 } = require('../middlewares/validationMiddlewares/registerValidationMiddleware');

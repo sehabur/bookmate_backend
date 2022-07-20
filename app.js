@@ -9,6 +9,7 @@ const {
   NotFoundHanlder,
   ErrorHanlder,
 } = require('./middlewares/errorHandlingMiddleware');
+const { getImageFromAwsS3 } = require('./middlewares/fileUpload');
 
 var app = express();
 dotenv.config();
@@ -34,6 +35,8 @@ app.use((req, res, next) => {
 app.use('/api/posts/', postRoute);
 app.use('/api/users/', userRoute);
 app.use('/api/orders/', orderRoute);
+
+app.get('/api/image/:image', getImageFromAwsS3);
 
 // catch 404 and forward to NotFoundHanlder //
 app.use(NotFoundHanlder);

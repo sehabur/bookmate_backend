@@ -22,7 +22,7 @@ const {
   postValidationMiddleware,
 } = require('../middlewares/validationMiddlewares/postValidationMiddleware');
 
-const fileUpload = require('../middlewares/fileUpload');
+const { fileUpload } = require('../middlewares/fileUpload');
 
 router
   .route('/')
