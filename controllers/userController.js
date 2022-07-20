@@ -24,7 +24,7 @@ const login = async (req, res, next) => {
       result = await bcrypt.compare(password, user.password);
       if (result) {
         res.status(200).json({
-          message: 'Login successful.',
+          message: 'Login attempt successful.',
           user: {
             id: user.id,
             shopName: user.shopName,
