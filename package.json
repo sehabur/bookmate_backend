@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "node ./bin/www",
-    "start-dev": "nodemon ./bin/www"
+    "dev-server": "nodemon ./bin/www"
   },
   "dependencies": {
     "aws-amplify": "^4.3.27",

@@ -233,7 +233,7 @@ const notificationResponded = async (req, res, next) => {
     const error = createError(500, 'Error occured');
     next(error);
   }
-}; // Not is use //
+}; // Not is use right now//
 
 module.exports = {
   getOrderById,

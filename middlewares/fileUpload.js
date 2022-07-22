@@ -54,7 +54,7 @@ const fileUploadToAwsS3 = (file) => {
   }
 };
 
-const fileDeleteAwsS3 = (filepath) => {
+const fileDeleteAwsS3 = (key) => {
   try {
     const s3 = new AWS.S3({
       accessKeyId,
@@ -63,7 +63,7 @@ const fileDeleteAwsS3 = (filepath) => {
     return s3
       .deleteObject({
         Bucket: process.env.AWS_BUCKET_NAME,
-        Key: filepath,
+        Key: key,
       })
       .promise();
   } catch (err) {

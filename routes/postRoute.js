@@ -14,7 +14,7 @@ const {
   editPost,
   deactivatePost,
   deletePost,
-  deleteFileByName,
+  deleteFileByKey,
 } = require('../controllers/postController');
 
 const { checkLogin } = require('../middlewares/authMiddleware');
@@ -40,6 +40,8 @@ router
 
 router.route('/byQuery').get(getPostsByQuery);
 
+router.route('/deleteFile').delete(checkLogin, deleteFileByKey);
+
 router
   .route('/:id')
   .get(getPostById)
@@ -54,8 +56,6 @@ router
     editPost
   )
   .delete(checkLogin, deletePost);
-
-router.route('/file/:name').delete(checkLogin, deleteFileByName);
 
 router.route('/user/:id').get(getPostsByUser);
 

@@ -43,7 +43,7 @@ const login = async (req, res, next) => {
       next(error);
     }
   } catch (err) {
-    const error = createError(500, 'Login failed. Unknown Error');
+    const error = createError(500, 'Login failed. Unknou99999wn Error');
     next(error);
   }
 };

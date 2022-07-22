@@ -7,7 +7,10 @@ const path = require('path');
 const Post = require('../models/postModel');
 const User = require('../models/userModel');
 const e = require('express');
-const { fileUploadToAwsS3 } = require('../middlewares/fileUpload');
+const {
+  fileUploadToAwsS3,
+  fileDeleteAwsS3,
+} = require('../middlewares/fileUpload');
 
 /*
   @api:       GET /api/posts?user={user}&limit={limit}
@@ -364,9 +367,9 @@ const editPost = async (req, res, next) => {
             writer,
             title,
             description,
-            image1: buildImagePath('image1', req),
-            image2: buildImagePath('image2', req),
-            image3: buildImagePath('image3', req),
+            image1: await buildImagePath('image1', req),
+            image2: await buildImagePath('image2', req),
+            image3: await buildImagePath('image3', req),
             price,
             division,
             district,
@@ -446,9 +449,13 @@ const deletePost = async (req, res, next) => {
 
         if (deletePost.deletedCount === 1) {
           const { image1, image2, image3 } = post;
-          await fileDeleteAwsS3(image1);
-          await fileDeleteAwsS3(image2);
-          await fileDeleteAwsS3(image3);
+          image1 && (await fileDeleteAwsS3(image1));
+          image2 && (await fileDeleteAwsS3(image2));
+          image3 && (await fileDeleteAwsS3(image3));
+
+          await User.findByIdAndUpdate(post.user, {
+            $pull: { posts: postId },
+          });
 
           res.status(200).json({
             message: 'Post deletion successful',
@@ -480,19 +487,20 @@ const deletePost = async (req, res, next) => {
   @desc:      Delete a file by its name
   @access:    private
 */
-const deleteFileByName = async (req, res, next) => {
-  const fileName = req.params.name;
-  fs.unlink(`public\\images\\${fileName}`, (err) => {
-    if (err) {
-      const error = createError(400, err.message);
-      next(error);
-    } else {
-      res.status(200).json({
-        message: 'File deletion successful',
-        fileName,
-      });
-    }
-  });
+const deleteFileByKey = async (req, res, next) => {
+  const fileKey = url.parse(req.url, true).query.fileKey;
+
+  try {
+    await fileDeleteAwsS3(fileKey);
+
+    res.status(200).json({
+      message: 'File deletion successful',
+      fileKey,
+    });
+  } catch (err) {
+    const error = createError(400, err.message);
+    next(error);
+  }
 };
 
 /*
@@ -533,5 +541,5 @@ module.exports = {
   editPost,
   deactivatePost,
   deletePost,
-  deleteFileByName,
+  deleteFileByKey,
 };
