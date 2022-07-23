@@ -1,5 +1,7 @@
+const { v4: uuidv4 } = require('uuid');
 const createError = require('http-errors');
-
+const Conversation = require('../models/conversationModel');
+const Message = require('../models/messageModel');
 const Notification = require('../models/notificationModel');
 const Order = require('../models/orderModel');
 const Post = require('../models/postModel');
@@ -157,20 +159,29 @@ const acceptOrder = async (req, res, next) => {
       }
     );
 
-    await User.findByIdAndUpdate(req.user.id, {
-      $inc: { exchangedCount: 1 },
-    });
-
     await Notification.findOneAndUpdate(
       { type: 'reqSent', order: req.params.id },
       { isActive: false }
     );
 
     if (requestStatus === 'accepted') {
+      await User.findByIdAndUpdate(req.user.id, {
+        $inc: { exchangedCount: 1 },
+      });
+
       await Post.findByIdAndUpdate(postId, {
         isExchanged: true,
         isActive: false,
       });
+
+      // Create a new conversation //
+      const newConversation = new Conversation({
+        chatId: uuidv4(),
+        participants: [updatedOrder.requestedTo, updatedOrder.requestor],
+        lastActivity: new Date(),
+        lastText: '',
+      });
+      await newConversation.save();
     }
 
     // Create notification //
@@ -178,7 +189,9 @@ const acceptOrder = async (req, res, next) => {
       type: 'reqAck',
       text: `${req.user.shopName} has ${requestStatus} your ${
         updatedOrder.offerType === 'buy' ? 'purchase' : updatedOrder.offerType
-      } request for ${bookTitle}`,
+      } request for ${bookTitle}. Go to message section to chat with ${
+        req.user.shopName
+      }`,
       receiver: updatedOrder.requestor,
       sender: updatedOrder.requestedTo,
       order: updatedOrder._id,
@@ -219,6 +232,80 @@ const getNotificationsByUser = async (req, res, next) => {
 };
 
 /*
+  @api:       POST /api/orders/sendMessage
+  @desc:      Send message to a participants
+  @access:    private
+*/
+const sendMessage = async (req, res, next) => {
+  const { chatId, sender, receiver, text } = req.body;
+  try {
+    const newMessage = new Message({
+      chatId,
+      sender,
+      receiver,
+      text,
+    });
+    await newMessage.save();
+
+    await Conversation.findOneAndUpdate(
+      { chatId },
+      { lastActivity: new Date(), lastText: text }
+    );
+
+    res.status(201).json({ message: 'New message created successfully' });
+  } catch (err) {
+    const error = createError(500, err.message);
+    next(error);
+  }
+};
+
+/*
+  @api:       GET /api/orders/getConversationsByUser/:userId
+  @desc:      get Conversations By a User
+  @access:    private
+*/
+const getConversationsByUser = async (req, res, next) => {
+  const userId = req.params.userId;
+
+  try {
+    const conversationLists = await Conversation.find({
+      participants: userId,
+    })
+      .sort({
+        lastActivity: 'desc',
+      })
+      .populate('participants');
+
+    res.status(200).json({ conversationLists });
+  } catch (err) {
+    const error = createError(500, err.message);
+    next(error);
+  }
+};
+
+/*
+  @api:       GET /api/orders/getMessagesByChatId/:chatId
+  @desc:      ge tMessages By ChatId
+  @access:    private
+*/
+const getMessagesByChatId = async (req, res, next) => {
+  const chatId = req.params.chatId;
+
+  try {
+    const messages = await Message.find({
+      chatId,
+    }).sort({
+      createdAt: 'asc',
+    });
+
+    res.status(200).json({ messages });
+  } catch (err) {
+    const error = createError(500, err.message);
+    next(error);
+  }
+};
+
+/*
   @api:       PATCH /api/orders/notification/:id
   @desc:      Make a notification mark as read
   @access:    private
@@ -242,4 +329,7 @@ module.exports = {
   requestOrder,
   acceptOrder,
   getNotificationsByUser,
+  sendMessage,
+  getConversationsByUser,
+  getMessagesByChatId,
 };
