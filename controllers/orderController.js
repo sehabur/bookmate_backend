@@ -77,7 +77,7 @@ const getOrdersByUser = async (req, res, next) => {
 */
 const getIsOrderPlaced = async (req, res, next) => {
   try {
-    const order = await Order.find({
+    const order = await Order.findOne({
       orderItem: req.params.id,
       requestor: req.user.id,
       requestStatus: { $ne: 'rejected' },
@@ -145,66 +145,70 @@ const requestOrder = async (req, res, next) => {
   @access:    private
 */
 const acceptOrder = async (req, res, next) => {
-  try {
-    const { acceptTime, requestStatus, postId, bookTitle } = req.body;
+  // try {
+  const { acceptTime, requestStatus, postId, bookTitle } = req.body;
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      req.params.id,
-      {
-        acceptTime,
-        requestStatus,
-      },
-      {
-        new: true,
-      }
-    );
-
-    await Notification.findOneAndUpdate(
-      { type: 'reqSent', order: req.params.id },
-      { isActive: false }
-    );
-
-    if (requestStatus === 'accepted') {
-      await User.findByIdAndUpdate(req.user.id, {
-        $inc: { exchangedCount: 1 },
-      });
-
-      await Post.findByIdAndUpdate(postId, {
-        isExchanged: true,
-        isActive: false,
-      });
-
-      // Create a new conversation //
-      const newConversation = new Conversation({
-        chatId: uuidv4(),
-        participants: [updatedOrder.requestedTo, updatedOrder.requestor],
-        lastActivity: new Date(),
-        lastText: '',
-      });
-      await newConversation.save();
+  const updatedOrder = await Order.findByIdAndUpdate(
+    req.params.id,
+    {
+      acceptTime,
+      requestStatus,
+    },
+    {
+      new: true,
     }
+  );
 
-    // Create notification //
-    const notification = new Notification({
-      type: 'reqAck',
-      text: `${req.user.shopName} has ${requestStatus} your ${
-        updatedOrder.offerType === 'buy' ? 'purchase' : updatedOrder.offerType
-      } request for ${bookTitle}. Go to message section to chat with ${
-        req.user.shopName
-      }`,
-      receiver: updatedOrder.requestor,
-      sender: updatedOrder.requestedTo,
-      order: updatedOrder._id,
-      post: updatedOrder.orderItem,
-      bookTitle,
+  await Notification.findOneAndUpdate(
+    { type: 'reqSent', order: req.params.id },
+    { isActive: false }
+  );
+
+  console.log(requestStatus);
+
+  if (requestStatus === 'accepted') {
+    await User.findByIdAndUpdate(req.user.id, {
+      $inc: { exchangedCount: 1 },
     });
-    await notification.save();
 
-    res.status(201).json({ message: 'Order accepted successfully' });
-  } catch (err) {
-    const error = createError(400, err.message);
-    next(error);
+    await Post.findByIdAndUpdate(postId, {
+      isExchanged: true,
+      isActive: false,
+    });
+
+    console.log(updatedOrder);
+
+    // Create a new conversation //
+    const newConversation = new Conversation({
+      chatId: uuidv4(),
+      participants: [updatedOrder.requestedTo, updatedOrder.requestor],
+      lastActivity: new Date(),
+    });
+    console.log(newConversation);
+    await newConversation.save();
   }
+
+  // Create notification //
+  const notification = new Notification({
+    type: 'reqAck',
+    text: `${req.user.shopName} has ${requestStatus} your ${
+      updatedOrder.offerType === 'buy' ? 'purchase' : updatedOrder.offerType
+    } request for ${bookTitle}. Go to message section to chat with ${
+      req.user.shopName
+    }`,
+    receiver: updatedOrder.requestor,
+    sender: updatedOrder.requestedTo,
+    order: updatedOrder._id,
+    post: updatedOrder.orderItem,
+    bookTitle,
+  });
+  await notification.save();
+
+  res.status(201).json({ message: 'Order accepted successfully' });
+  // } catch (err) {
+  //   const error = createError(400, err.message);
+  //   next(error);
+  // }
 };
 
 /*
@@ -238,6 +242,7 @@ const getNotificationsByUser = async (req, res, next) => {
 */
 const sendMessage = async (req, res, next) => {
   const { chatId, sender, receiver, text } = req.body;
+
   try {
     const newMessage = new Message({
       chatId,
@@ -255,6 +260,27 @@ const sendMessage = async (req, res, next) => {
     res.status(201).json({ message: 'New message created successfully' });
   } catch (err) {
     const error = createError(500, err.message);
+    next(error);
+  }
+};
+
+/*
+  @api:       GET /api/orders/newMessageCount/user/:id
+  @desc:      get new message count of a user
+  @access:    private
+*/
+const getNewMessageCount = async (req, res, next) => {
+  const userId = req.params.id;
+
+  try {
+    const newMessageCount = await Conversation.find({
+      participants: userId,
+      new: true,
+    }).count();
+
+    res.status(200).json({ count: newMessageCount || 0 });
+  } catch (err) {
+    const error = createError(500, 'Error Occured');
     next(error);
   }
 };
@@ -329,6 +355,7 @@ module.exports = {
   requestOrder,
   acceptOrder,
   getNotificationsByUser,
+  getNewMessageCount,
   sendMessage,
   getConversationsByUser,
   getMessagesByChatId,

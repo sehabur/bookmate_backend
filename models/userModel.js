@@ -52,13 +52,6 @@ const userSchema = mongoose.Schema(
         ref: 'Post',
       },
     ],
-    orders: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'Order',
-      },
-    ],
     savedItems: [
       {
         type: mongoose.Schema.Types.ObjectId,

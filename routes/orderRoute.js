@@ -9,6 +9,7 @@ const {
   getOrdersByUser,
   getIsOrderPlaced,
   getNotificationsByUser,
+  getNewMessageCount,
   sendMessage,
   getConversationsByUser,
   getMessagesByChatId,
@@ -35,6 +36,8 @@ router.route('/user/:id').get(checkLogin, getOrdersByUser);
 router.route('/isOrderPlaced/:id').get(checkLogin, getIsOrderPlaced);
 
 router.route('/notification/user/:id').get(checkLogin, getNotificationsByUser);
+
+router.route('/newMessageCount/user/:id').get(checkLogin, getNewMessageCount);
 
 router.route('/:id').get(checkLogin, getOrderById);
 

@@ -32,6 +32,9 @@ const login = async (req, res, next) => {
             token: generateToken(user.id),
             image: user.image,
             isLoggedIn: true,
+            division: user.division,
+            district: user.district,
+            area: user.area,
           },
         });
       } else {
@@ -62,6 +65,7 @@ const register = async (req, res, next) => {
     }
 
     const { shopName, email, password } = req.body;
+
     const userExists = await User.findOne({ email });
 
     if (!userExists) {
@@ -149,7 +153,6 @@ const updateUserProfile = async (req, res, next) => {
   let imageData;
 
   if (req.file) {
-    console.log('file');
     const imageUploadResult = await fileUploadToAwsS3(req.file);
 
     if (!imageUploadResult) {
@@ -174,7 +177,6 @@ const updateUserProfile = async (req, res, next) => {
     //   })
     //   .promise();
 
-    console.log(imageUploadResult);
     imageData = imageUploadResult.Key;
   } else if (req.body.image) {
     imageData = req.body.image;
@@ -185,8 +187,8 @@ const updateUserProfile = async (req, res, next) => {
   // res.send(req);
 
   if (userId === req.user.id) {
-    const userUpdate = await User.findOneAndUpdate(
-      { id: userId },
+    const userUpdate = await User.findByIdAndUpdate(
+      userId,
       {
         shopName,
         firstName,

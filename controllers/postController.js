@@ -43,7 +43,6 @@ const getRecentPosts = async (req, res, next) => {
   @access:    public
 */
 const getPostsByQuery = async (req, res, next) => {
-  console.log(url.parse(req.url, true).query);
   try {
     const {
       user: userId,
@@ -88,9 +87,13 @@ const getPostsByQuery = async (req, res, next) => {
     }
 
     if (search) {
+      const searchKeywords = search
+        .split(' ')
+        .map((keyword) => new RegExp(keyword, 'i'));
+
       secondaryFilter.$or = [
-        { title: new RegExp(search, 'i') },
-        { writer: new RegExp(search, 'i') },
+        { title: { $in: searchKeywords } },
+        { writer: { $in: searchKeywords } },
       ];
     }
 
@@ -179,7 +182,6 @@ const getPostsByUser = async (req, res, next) => {
 */
 const getSavedPosts = async (req, res, next) => {
   try {
-    console.log(req.params.id);
     const posts = await User.findById(req.params.id)
       .select('savedItems')
       .populate({
@@ -222,6 +224,7 @@ const createPost = async (req, res, next) => {
       division,
       enableSellOffer,
       enableExchangeOffer,
+      setLocationDefault,
     } = req.body;
 
     const newPost = new Post({
@@ -249,10 +252,17 @@ const createPost = async (req, res, next) => {
 
     const createdNewPost = await newPost.save();
 
-    await User.findOneAndUpdate(
-      { _id: req.user.id },
-      { $push: { posts: createdNewPost.id } }
-    );
+    if (setLocationDefault == 'true') {
+      await User.findOneAndUpdate(
+        { _id: req.user.id },
+        { division, district, area, $push: { posts: createdNewPost.id } }
+      );
+    } else if (setLocationDefault == 'false') {
+      await User.findOneAndUpdate(
+        { _id: req.user.id },
+        { $push: { posts: createdNewPost.id } }
+      );
+    }
 
     res
       .status(201)

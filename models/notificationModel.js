@@ -15,12 +15,12 @@ const notificationSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-    ctaButtonText: {
-      type: String,
-    },
-    ctaButtonAction: {
-      type: String,
-    },
+    // ctaButtonText: {
+    //   type: String,
+    // },
+    // ctaButtonAction: {
+    //   type: String,
+    // },
     isActive: {
       type: Boolean,
       default: true,

@@ -19,7 +19,10 @@ const conversationSchema = mongoose.Schema(
     },
     lastText: {
       type: String,
-      required: true,
+    },
+    new: {
+      type: Boolean,
+      default: true,
     },
   },
   {
