@@ -320,9 +320,11 @@ const getMessagesByChatId = async (req, res, next) => {
   try {
     const messages = await Message.find({
       chatId,
-    }).sort({
-      createdAt: 'asc',
-    });
+    })
+      .sort({
+        createdAt: 'desc',
+      })
+      .limit(50);
 
     res.status(200).json({ messages });
   } catch (err) {
