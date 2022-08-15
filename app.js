@@ -72,15 +72,18 @@ let users = [];
 io.on('connection', (socket) => {
   socket.on('addUser', (userId) => {
     users = addSocketUser(users, userId, socket.id);
+    console.log(users);
   });
   socket.on('sendMessage', (data, callback) => {
     sendMessageSocket(users, io, data, callback);
+    console.log(users);
   });
   socket.on('resetNewConversation', (conversationId) => {
     resetNewConversation(conversationId);
   });
   socket.on('disconnect', () => {
     users = removeSocketUser(users, socket.id);
+    console.log(users);
   });
 });
 
