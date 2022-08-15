@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const winston = require('winston');
 
 // Internal imports //
 const postRoute = require('./routes/postRoute');
@@ -70,6 +71,8 @@ let users = [];
 
 // Socket.io functions //
 io.on('connection', (socket) => {
+  winston.log('info', 'A user conntected');
+
   socket.on('addUser', (userId) => {
     users = addSocketUser(users, userId, socket.id);
     console.log(users);
@@ -83,6 +86,7 @@ io.on('connection', (socket) => {
   });
   socket.on('disconnect', () => {
     users = removeSocketUser(users, socket.id);
+    winston.log('info', 'A user disconntected');
     console.log(users);
   });
 });

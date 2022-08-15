@@ -32,6 +32,8 @@ const getConversationsByUser = async (userId) => {
 const addSocketUser = (users, userId, socketId) => {
   let userExist = false;
 
+  winston.log('info', 'add user 1', users);
+
   users.forEach((user, index) => {
     if (user.userId === userId) {
       users[index].socketId = socketId;
@@ -41,6 +43,8 @@ const addSocketUser = (users, userId, socketId) => {
   if (!userExist) {
     users.push({ userId, socketId });
   }
+  winston.log('info', 'add user 2', users);
+  winston.log('info', 'add user', `${userId} user added`);
   console.log(`${userId} user added`);
 
   return users;
@@ -51,7 +55,7 @@ const sendMessageSocket = async (users, io, message, callback) => {
 
   logger.info('users', { users });
 
-  winston.log('info', '-------Hello log files!------------', {
+  winston.log('info', 'send message', {
     users,
   });
 
