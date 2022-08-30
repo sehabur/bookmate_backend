@@ -5,7 +5,11 @@ const dotenv = require('dotenv');
 const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const winston = require('winston');
+var expressWinston = require('express-winston');
+var winston = require('winston'); // for transports.Console
+require('winston-mongodb');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
 
 // Internal imports //
 const postRoute = require('./routes/postRoute');
@@ -51,7 +55,26 @@ app.use('/api/posts/', postRoute);
 app.use('/api/users/', userRoute);
 app.use('/api/orders/', orderRoute);
 
-app.get('/api/image/:image', getImageFromAwsS3);
+// Swagger route //
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// Error Logger //
+app.use(
+  expressWinston.errorLogger({
+    transports: [
+      new winston.transports.Console({
+        json: true,
+        colorize: true,
+      }),
+      new winston.transports.MongoDB({
+        level: 'error',
+        db: process.env.MONGO_CONNECTION_STRING,
+        options: { useUnifiedTopology: true },
+        metaKey: 'meta',
+      }),
+    ],
+  })
+);
 
 // Catch 404 and forward to NotFoundHanlder //
 app.use(NotFoundHanlder);
@@ -71,23 +94,18 @@ let users = [];
 
 // Socket.io functions //
 io.on('connection', (socket) => {
-  winston.log('info', 'A user conntected');
-
   socket.on('addUser', (userId) => {
     users = addSocketUser(users, userId, socket.id);
     console.log(users);
   });
   socket.on('sendMessage', (data, callback) => {
     sendMessageSocket(users, io, data, callback);
-    console.log(users);
   });
   socket.on('resetNewConversation', (conversationId) => {
     resetNewConversation(conversationId);
   });
   socket.on('disconnect', () => {
     users = removeSocketUser(users, socket.id);
-    winston.log('info', 'A user disconntected');
-    console.log(users);
   });
 });
 

@@ -3,36 +3,11 @@ const Conversation = require('../models/conversationModel');
 const Message = require('../models/messageModel');
 const User = require('../models/userModel');
 
-const logger = require('heroku-logger');
-const winston = require('winston');
-
-// Helper Functions //
-
-const getReceiver = (users, receiverId) => {
-  return users.find((user) => user.userId === receiverId);
-};
-
-const getConversationsByUser = async (userId) => {
-  try {
-    const conversationLists = await Conversation.find({
-      participants: userId,
-    })
-      .sort({
-        lastActivity: 'desc',
-      })
-      .populate('participants');
-
-    return conversationLists;
-  } catch (err) {
-    const error = createError(500, err.message);
-    console.log(error);
-  }
-};
+// const winston = require('winston');
 
 const addSocketUser = (users, userId, socketId) => {
   let userExist = false;
-
-  winston.log('info', 'add user 1', users);
+  // winston.log('info', 'add user 1', users);
 
   users.forEach((user, index) => {
     if (user.userId === userId) {
@@ -43,8 +18,6 @@ const addSocketUser = (users, userId, socketId) => {
   if (!userExist) {
     users.push({ userId, socketId });
   }
-  winston.log('info', 'add user 2', users);
-  winston.log('info', 'add user', `${userId} user added`);
   console.log(`${userId} user added`);
 
   return users;
@@ -52,12 +25,6 @@ const addSocketUser = (users, userId, socketId) => {
 
 const sendMessageSocket = async (users, io, message, callback) => {
   const { chatId, sender, receiver, text } = message;
-
-  logger.info('users', { users });
-
-  winston.log('info', 'send message', {
-    users,
-  });
 
   const receiverUser = getReceiver(users, receiver);
   const senderUser = getReceiver(users, sender);
@@ -103,6 +70,29 @@ const resetNewConversation = async (conversationId) => {
 
 const removeSocketUser = (users, socketId) =>
   users.filter((user) => user.socketId !== socketId);
+
+// Helper Functions //
+
+const getReceiver = (users, receiverId) => {
+  return users.find((user) => user.userId === receiverId);
+};
+
+const getConversationsByUser = async (userId) => {
+  try {
+    const conversationLists = await Conversation.find({
+      participants: userId,
+    })
+      .sort({
+        lastActivity: 'desc',
+      })
+      .populate('participants');
+
+    return conversationLists;
+  } catch (err) {
+    const error = createError(500, err.message);
+    console.log(error);
+  }
+};
 
 module.exports = {
   addSocketUser,

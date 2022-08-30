@@ -1,4 +1,5 @@
 const createError = require('http-errors');
+const winston = require('winston');
 
 // catch 404 and forward to NotFoundHanlder //
 const NotFoundHanlder = (req, res, next) => {

@@ -268,20 +268,6 @@ const createPost = async (req, res, next) => {
       .status(201)
       .json({ message: 'Post created successfully', post: createdNewPost });
   } catch (err) {
-    // if (req.files) {
-    //   req.files.image1 &&
-    //     fs.unlink(req.files.image1[0].path, (err) => {
-    //       console.error(err);
-    //     });
-    //   req.files.image2 &&
-    //     fs.unlink(req.files.image2[0].path, (err) => {
-    //       console.error(err);
-    //     });
-    //   req.files.image3 &&
-    //     fs.unlink(req.files.image3[0].path, (err) => {
-    //       console.error(err);
-    //     });
-    // }
     const error = createError(400, err.message);
     next(error);
   }
