@@ -13,6 +13,7 @@ const {
   sendMessage,
   getConversationsByUser,
   getMessagesByChatId,
+  createNewConversation,
 } = require('../controllers/orderController');
 
 const { checkLogin } = require('../middlewares/authMiddleware');
@@ -20,6 +21,8 @@ const { checkLogin } = require('../middlewares/authMiddleware');
 router.route('/request').post(checkLogin, requestOrder);
 
 router.route('/sendMessage').post(checkLogin, sendMessage);
+
+router.route('/createNewConversation').post(checkLogin, createNewConversation);
 
 router
   .route('/getConversationsByUser/:userId')

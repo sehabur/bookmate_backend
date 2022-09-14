@@ -265,6 +265,46 @@ const sendMessage = async (req, res, next) => {
 };
 
 /*
+  @api:       POST /api/orders/createNewConversation
+  @desc:      Create a New Conversation
+  @access:    private
+*/
+const createNewConversation = async (req, res, next) => {
+  const { senderId, receiverId } = req.body;
+
+  try {
+    const conversation = await Conversation.find({
+      participants: { $all: [senderId, receiverId] },
+    });
+
+    if (conversation.length > 0) {
+      await Conversation.findByIdAndUpdate(conversation[0]._id, {
+        lastActivity: new Date(),
+        new: true,
+      });
+
+      res.status(201).json({ message: 'conversation already exists' });
+    } else {
+      // Create a new conversation //
+      const newConversation = new Conversation({
+        chatId: uuidv4(),
+        participants: [senderId, receiverId],
+        lastActivity: new Date(),
+      });
+
+      await newConversation.save();
+
+      res
+        .status(201)
+        .json({ message: 'New conversation created successfully' });
+    }
+  } catch (err) {
+    const error = createError(500, err.message);
+    next(error);
+  }
+};
+
+/*
   @api:       GET /api/orders/newMessageCount/user/:id
   @desc:      get new message count of a user
   @access:    private
@@ -361,4 +401,5 @@ module.exports = {
   sendMessage,
   getConversationsByUser,
   getMessagesByChatId,
+  createNewConversation,
 };

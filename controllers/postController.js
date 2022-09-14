@@ -69,7 +69,7 @@ const getPostsByQuery = async (req, res, next) => {
     }
 
     if (category && category !== 'All') {
-      secondaryFilter.category = category;
+      secondaryFilter.category = category.replace('AND', '&');
     }
 
     if (!(exchangeOffer && sellOffer)) {

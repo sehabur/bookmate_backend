@@ -121,7 +121,23 @@ const getUserProfileById = async (req, res, next) => {
 */
 const getAllUserProfile = async (req, res, next) => {
   try {
-    const users = await User.find().select('-password -__v').limit(20);
+    const users = await User.aggregate([
+      {
+        $project: {
+          shopName: 1,
+          email: 1,
+          exchangedCount: 1,
+          posts: 1,
+          orders: 1,
+          savedItems: 1,
+          createdAt: 1,
+          image: 1,
+          postsCount: { $size: '$posts' },
+        },
+      },
+    ])
+      .sort({ postsCount: 'desc', createdAt: 'desc' })
+      .limit(70);
     if (users) {
       res.status(200).json({ users });
     } else {
@@ -140,78 +156,64 @@ const getAllUserProfile = async (req, res, next) => {
   @access:    private
 */
 const updateUserProfile = async (req, res, next) => {
-  // try {
-  const errors = validationResult(req);
+  console.log(req.body);
+  try {
+    const errors = validationResult(req);
 
-  if (!errors.isEmpty()) {
-    return res.status(400).json(errors);
-  }
+    if (!errors.isEmpty()) {
+      return res.status(400).json(errors);
+    }
 
-  const userId = req.params.id;
-  const { shopName, firstName, lastName, division, district, area } = req.body;
+    const userId = req.params.id;
+    const { shopName, phoneNo, firstName, lastName, division, district, area } =
+      req.body;
 
-  let imageData;
+    let imageData;
 
-  if (req.file) {
-    const imageUploadResult = await fileUploadToAwsS3(req.file);
+    if (req.file) {
+      const imageUploadResult = await fileUploadToAwsS3(req.file);
 
-    if (!imageUploadResult) {
-      const error = createError(400, 'Image upload failed');
+      if (!imageUploadResult) {
+        const error = createError(400, 'Image upload failed');
+        next(error);
+      }
+
+      imageData = imageUploadResult.Key;
+    } else if (req.body.image !== 'null') {
+      imageData = req.body.image;
+    } else if (req.body.image === 'null') {
+      imageData = null;
+    }
+
+    // res.send(req);
+
+    if (userId === req.user.id) {
+      const userUpdate = await User.findByIdAndUpdate(
+        userId,
+        {
+          shopName,
+          phoneNo,
+          firstName,
+          lastName,
+          image: imageData,
+          division,
+          district,
+          area,
+        },
+        { new: true }
+      ).select('-password -__v');
+
+      res
+        .status(201)
+        .json({ message: 'User update successful', userUpdate: userUpdate });
+    } else {
+      const error = createError(400, 'User update failed');
       next(error);
     }
-    // const s3 = new AWS.S3({
-    //   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    //   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    // });
-    // const MIME_TYPE_MAP = {
-    //   'image/jpeg': 'jpeg',
-    //   'image/jpg': 'jpg',
-    //   'image/png': 'png',
-    // };
-
-    // const imageUploadResult = await s3
-    //   .upload({
-    //     Bucket: process.env.AWS_BUCKET_NAME,
-    //     Body: req.file.buffer,
-    //     Key: 'images/' + uuidv4() + '.' + MIME_TYPE_MAP[req.file.mimetype],
-    //   })
-    //   .promise();
-
-    imageData = imageUploadResult.Key;
-  } else if (req.body.image) {
-    imageData = req.body.image;
-  } else {
-    imageData = null;
-  }
-
-  // res.send(req);
-
-  if (userId === req.user.id) {
-    const userUpdate = await User.findByIdAndUpdate(
-      userId,
-      {
-        shopName,
-        firstName,
-        lastName,
-        image: imageData,
-        division,
-        district,
-        area,
-      },
-      { new: true }
-    ).select('-password -__v');
-
-    res
-      .status(201)
-      .json({ message: 'User update successful', userUpdate: userUpdate });
-  } else {
+  } catch (err) {
     const error = createError(400, 'User update failed');
     next(error);
   }
-  // } catch (err) {
-  //   const error = createError(400, 'User update failed');
-  //   next(error);
-  // }
 };
 
 // Helper Functions //

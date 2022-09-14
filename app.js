@@ -96,7 +96,7 @@ let users = [];
 io.on('connection', (socket) => {
   socket.on('addUser', (userId) => {
     users = addSocketUser(users, userId, socket.id);
-    console.log(users);
+    // console.log(users);
   });
   socket.on('sendMessage', (data, callback) => {
     sendMessageSocket(users, io, data, callback);

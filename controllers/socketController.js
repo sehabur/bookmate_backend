@@ -18,7 +18,7 @@ const addSocketUser = (users, userId, socketId) => {
   if (!userExist) {
     users.push({ userId, socketId });
   }
-  console.log(`${userId} user added`);
+  // console.log(`${userId} user added`);
 
   return users;
 };
