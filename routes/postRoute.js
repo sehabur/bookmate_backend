@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 
 const {
-  getRecentPosts,
+  getPosts,
   getPostsByQuery,
   getPostById,
   getPostsByUser,
@@ -26,7 +26,7 @@ const { fileUpload } = require('../middlewares/fileUpload');
 
 router
   .route('/')
-  .get(getRecentPosts)
+  .get(getPosts)
   .post(
     checkLogin,
     fileUpload.fields([

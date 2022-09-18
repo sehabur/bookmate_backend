@@ -17,14 +17,30 @@ const {
   @desc:      get all posts
   @access:    public
 */
-const getRecentPosts = async (req, res, next) => {
+const getPosts = async (req, res, next) => {
   try {
-    const { user: userId, limit } = url.parse(req.url, true).query;
+    const { type, user: userId, limit } = url.parse(req.url, true).query;
 
-    const posts = await Post.find({ user: { $ne: userId }, isActive: true })
-      .select({ __v: 0 })
-      .sort({ updatedAt: 'desc' })
-      .limit(limit);
+    let posts = null;
+
+    if (type === 'latest') {
+      posts = await Post.find({ user: { $ne: userId }, isActive: true })
+        .select({ __v: 0 })
+        .sort({ updatedAt: 'desc' })
+        .limit(limit);
+    } else if (type === 'nearest') {
+      const requestUser = await User.findById(userId);
+
+      posts = await Post.find({
+        user: { $ne: userId },
+        isActive: true,
+        district: requestUser.district,
+      })
+        .select({ __v: 0 })
+        .sort({ updatedAt: 'desc' })
+        .limit(limit);
+    }
+
     if (posts) {
       res.json({ posts });
     } else {
@@ -526,7 +542,7 @@ const buildImagePath = async (imageNum, req) => {
 };
 
 module.exports = {
-  getRecentPosts,
+  getPosts,
   getPostsByQuery,
   getPostById,
   getPostsByUser,

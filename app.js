@@ -5,8 +5,8 @@ const dotenv = require('dotenv');
 const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
-var expressWinston = require('express-winston');
-var winston = require('winston'); // for transports.Console
+// var expressWinston = require('express-winston');
+// var winston = require('winston'); // for transports.Console
 require('winston-mongodb');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -59,22 +59,22 @@ app.use('/api/orders/', orderRoute);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Error Logger //
-app.use(
-  expressWinston.errorLogger({
-    transports: [
-      new winston.transports.Console({
-        json: true,
-        colorize: true,
-      }),
-      new winston.transports.MongoDB({
-        level: 'error',
-        db: process.env.MONGO_CONNECTION_STRING,
-        options: { useUnifiedTopology: true },
-        metaKey: 'meta',
-      }),
-    ],
-  })
-);
+// app.use(
+//   expressWinston.errorLogger({
+//     transports: [
+//       new winston.transports.Console({
+//         json: true,
+//         colorize: true,
+//       }),
+//       new winston.transports.MongoDB({
+//         level: 'error',
+//         db: process.env.MONGO_CONNECTION_STRING,
+//         options: { useUnifiedTopology: true },
+//         metaKey: 'meta',
+//       }),
+//     ],
+//   })
+// );
 
 // Catch 404 and forward to NotFoundHanlder //
 app.use(NotFoundHanlder);
