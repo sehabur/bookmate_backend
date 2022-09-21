@@ -6,6 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 const S3 = require('aws-sdk/clients/s3');
 const AWS = require('aws-sdk');
 
+var nodemailer = require('nodemailer');
+var smtpTransport = require('nodemailer-smtp-transport');
+
 const User = require('../models/userModel');
 const Notification = require('../models/notificationModel');
 const { fileUploadToAwsS3 } = require('../middlewares/fileUpload');
@@ -46,7 +49,7 @@ const login = async (req, res, next) => {
       next(error);
     }
   } catch (err) {
-    const error = createError(500, 'Login failed. Unknou99999wn Error');
+    const error = createError(500, 'Login failed. Unknown Error');
     next(error);
   }
 };
@@ -137,7 +140,7 @@ const getAllUserProfile = async (req, res, next) => {
       },
     ])
       .sort({ postsCount: 'desc', createdAt: 'desc' })
-      .limit(70);
+      .limit(50);
     if (users) {
       res.status(200).json({ users });
     } else {
@@ -156,7 +159,6 @@ const getAllUserProfile = async (req, res, next) => {
   @access:    private
 */
 const updateUserProfile = async (req, res, next) => {
-  console.log(req.body);
   try {
     const errors = validationResult(req);
 
@@ -184,8 +186,6 @@ const updateUserProfile = async (req, res, next) => {
     } else if (req.body.image === 'null') {
       imageData = null;
     }
-
-    // res.send(req);
 
     if (userId === req.user.id) {
       const userUpdate = await User.findByIdAndUpdate(
@@ -216,6 +216,124 @@ const updateUserProfile = async (req, res, next) => {
   }
 };
 
+/*
+  @api:       POST /api/users/changePassword/
+  @desc:      change Password
+  @access:    private
+*/
+const changePassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (user) {
+      result = await bcrypt.compare(oldPassword, user.password);
+      if (result) {
+        await User.findByIdAndUpdate(req.user.id, {
+          password: encriptPassword(newPassword),
+        });
+
+        res.status(201).json({
+          message: 'Password changed successful.',
+        });
+      } else {
+        const error = createError(401, 'Old Password does not match.');
+        next(error);
+      }
+    } else {
+      const error = createError(404, 'User not found');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'Password change failed.');
+    next(error);
+  }
+};
+
+/*
+  @api:       POST /api/users/resetPasswordLink/
+  @desc:      Reset Password
+  @access:    public
+*/
+const resetPasswordLink = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (user) {
+      const resetToken = uuidv4();
+
+      await User.findOneAndUpdate(user._id, {
+        resetToken,
+        resetTokenExpiry: new Date(new Date().getTime() + 15 * 60000),
+      });
+
+      const mailSendResponse = await sendmailToUser(
+        user.email,
+        `${process.env.FRONT_END_URL_PROD}/managePassword/setNew?user=${user._id}&resetToken=${resetToken}`
+      );
+      console.log(mailSendResponse);
+
+      if (mailSendResponse.messageId) {
+        res.status(200).json({
+          message: 'Password reset link sent successfully',
+          mailTo: user.email,
+        });
+      } else {
+        const error = createError(500, 'Password reset link sent failed.');
+        next(error);
+      }
+    } else {
+      const error = createError(500, 'User not found with this email');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'Password reset link sent failed.');
+    next(error);
+  }
+};
+
+/*
+  @api:       POST /api/users/setNewPassword/
+  @desc:      Set new Password
+  @access:    public
+*/
+const setNewPassword = async (req, res, next) => {
+  try {
+    const { newPassword, userId, resetToken } = req.body;
+    const user = await User.findById(userId);
+
+    if (user) {
+      if (
+        user.resetToken === resetToken &&
+        user.resetTokenExpiry > new Date()
+      ) {
+        await user.update({
+          password: encriptPassword(newPassword),
+          resetToken: null,
+          resetTokenExpiry: null,
+        });
+
+        res.status(201).json({
+          message: 'Password changed successfully',
+        });
+      } else {
+        const error = createError(
+          401,
+          'Your password reset link is invalid or got expired.'
+        );
+        next(error);
+      }
+    } else {
+      const error = createError(500, 'User not found.');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'Password change failed.');
+    next(error);
+  }
+};
+
 // Helper Functions //
 
 const generateToken = (id) => {
@@ -227,6 +345,32 @@ const encriptPassword = (password) => {
   return bcrypt.hashSync(password, saltRounds);
 };
 
+const sendmailToUser = async (mailTo, verificationLink) => {
+  const mailBody = `<html><body><h2>Reset your password </h2><p>Click on the below link to reset your password</p><p><a href=${verificationLink} target="_blank">Reset Password</a></p></body></html>`;
+
+  const transporter = nodemailer.createTransport(
+    smtpTransport({
+      service: 'gmail',
+      host: 'smtp.gmail.com',
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    })
+  );
+
+  try {
+    return await transporter.sendMail({
+      from: process.env.MAIL_USER,
+      to: mailTo,
+      subject: 'BoiExchange - Reset Password',
+      html: mailBody,
+    });
+  } catch (err) {
+    return err;
+  }
+};
+
 // Exports //
 
 module.exports = {
@@ -235,4 +379,7 @@ module.exports = {
   getUserProfileById,
   getAllUserProfile,
   updateUserProfile,
+  changePassword,
+  resetPasswordLink,
+  setNewPassword,
 };

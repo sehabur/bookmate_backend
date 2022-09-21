@@ -8,11 +8,14 @@ const {
   getUserProfileById,
   updateUserProfile,
   getAllUserProfile,
+  changePassword,
+  resetPasswordLink,
+  setNewPassword,
 } = require('../controllers/userController');
 
 const { checkLogin } = require('../middlewares/authMiddleware');
 
-const { fileUpload, fileUploadToAwsS3 } = require('../middlewares/fileUpload');
+const { fileUpload } = require('../middlewares/fileUpload');
 const {
   registerValidationMiddleware,
 } = require('../middlewares/validationMiddlewares/registerValidationMiddleware');
@@ -35,5 +38,11 @@ router
   );
 
 router.route('/allUsers').get(getAllUserProfile);
+
+router.post('/changePassword', checkLogin, changePassword);
+
+router.post('/resetPasswordLink', resetPasswordLink);
+
+router.post('/setNewPassword', setNewPassword);
 
 module.exports = router;

@@ -62,6 +62,12 @@ const userSchema = mongoose.Schema(
         ref: 'Post',
       },
     ],
+    resetToken: {
+      type: String,
+    },
+    resetTokenExpiry: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
