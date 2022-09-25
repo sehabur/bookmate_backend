@@ -81,7 +81,7 @@ const getPostsByQuery = async (req, res, next) => {
     } else if (district) {
       secondaryFilter.district = district;
     } else if (area) {
-      secondaryFilter.area = area;
+      secondaryFilter.area = { $regex: new RegExp(area, 'i') };
     }
 
     if (category && category !== 'All') {
