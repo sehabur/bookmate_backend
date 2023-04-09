@@ -36,6 +36,9 @@ const userSchema = mongoose.Schema(
     area: {
       type: String,
     },
+    currentInstitution: {
+      type: String,
+    },
     isAdmin: {
       type: Boolean,
       default: false,

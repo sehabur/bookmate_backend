@@ -13,44 +13,77 @@ const {
 } = require('../middlewares/fileUpload');
 
 /*
-  @api:       GET /api/posts?user={user}&limit={limit}
+  @api:       GET /api/posts?type={nearest}&user={user}&limit={limit}
   @desc:      get all posts
   @access:    public
 */
+
 const getPosts = async (req, res, next) => {
-  try {
-    const { type, user: userId, limit } = url.parse(req.url, true).query;
+  // try {
+  const { type, user, limit } = url.parse(req.url, true).query;
 
-    let posts = null;
+  const userId = user === '0' ? '627bb5ef35ffb019b973d811' : user; // some random fake id //
 
-    if (type === 'latest') {
-      posts = await Post.find({ user: { $ne: userId }, isActive: true })
+  let posts;
+  if (type === 'findpost') {
+    posts = await Post.find({
+      user: { $ne: userId },
+      isActive: true,
+    })
+      .select({ __v: 0 })
+      .sort({ updatedAt: 'desc' })
+      .limit(limit);
+  } else if (type === 'homepage') {
+    const latestPosts = await Post.find({
+      user: { $ne: userId },
+      isActive: true,
+    })
+      .select({ __v: 0 })
+      .sort({ updatedAt: 'desc' })
+      .limit(limit);
+
+    let nearestPosts = null;
+    let institutionPosts = null;
+
+    if (user !== '0') {
+      const requestUser = await User.findById(userId);
+
+      nearestPosts = await Post.find({
+        user: { $ne: userId },
+        isActive: true,
+        area: requestUser.area,
+      })
         .select({ __v: 0 })
         .sort({ updatedAt: 'desc' })
         .limit(limit);
-    } else if (type === 'nearest') {
-      const requestUser = await User.findById(userId);
 
-      posts = await Post.find({
+      institutionPosts = await Post.find({
         user: { $ne: userId },
         isActive: true,
-        district: requestUser.district,
+        currentInstitution: requestUser.currentInstitution || '',
       })
         .select({ __v: 0 })
         .sort({ updatedAt: 'desc' })
         .limit(limit);
     }
 
-    if (posts) {
-      res.json({ posts });
-    } else {
-      const error = createError(404, 'No Posts Found');
-      next(error);
-    }
-  } catch (err) {
-    const error = createError(500, 'No Posts Found');
+    posts = {
+      latestPosts,
+      nearestPosts,
+      institutionPosts,
+    };
+  }
+
+  if (posts) {
+    res.json({ posts });
+  } else {
+    const error = createError(404, 'No Posts Found');
     next(error);
   }
+  // } catch (err) {
+  //   const error = createError(500, 'No Posts Found');
+  //   next(error);
+  // }
 };
 
 /*
@@ -241,6 +274,7 @@ const createPost = async (req, res, next) => {
       enableSellOffer,
       enableExchangeOffer,
       setLocationDefault,
+      currentInstitution,
     } = req.body;
 
     const newPost = new Post({
@@ -263,6 +297,7 @@ const createPost = async (req, res, next) => {
       area,
       enableSellOffer,
       enableExchangeOffer,
+      currentInstitution,
       user: req.user.id,
     });
 
@@ -271,7 +306,13 @@ const createPost = async (req, res, next) => {
     if (setLocationDefault == 'true') {
       await User.findOneAndUpdate(
         { _id: req.user.id },
-        { division, district, area, $push: { posts: createdNewPost.id } }
+        {
+          division,
+          district,
+          area,
+          currentInstitution,
+          $push: { posts: createdNewPost.id },
+        }
       );
     } else if (setLocationDefault == 'false') {
       await User.findOneAndUpdate(

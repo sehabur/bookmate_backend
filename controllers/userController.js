@@ -38,6 +38,7 @@ const login = async (req, res, next) => {
             division: user.division,
             district: user.district,
             area: user.area,
+            currentInstitution: user.currentInstitution,
           },
         });
       } else {
@@ -67,7 +68,16 @@ const register = async (req, res, next) => {
       return res.status(400).json(errors);
     }
 
-    const { shopName, email, password } = req.body;
+    const {
+      email,
+      password,
+      shopName,
+      phoneNo,
+      division,
+      district,
+      area,
+      currentInstitution,
+    } = req.body;
 
     const userExists = await User.findOne({ email });
 
@@ -76,6 +86,11 @@ const register = async (req, res, next) => {
         shopName,
         email,
         password: encriptPassword(password),
+        phoneNo,
+        division,
+        district,
+        area,
+        currentInstitution,
       });
 
       res.status(201).json({
@@ -167,8 +182,16 @@ const updateUserProfile = async (req, res, next) => {
     }
 
     const userId = req.params.id;
-    const { shopName, phoneNo, firstName, lastName, division, district, area } =
-      req.body;
+    const {
+      shopName,
+      phoneNo,
+      firstName,
+      lastName,
+      division,
+      district,
+      area,
+      currentInstitution,
+    } = req.body;
 
     let imageData;
 
@@ -199,6 +222,7 @@ const updateUserProfile = async (req, res, next) => {
           division,
           district,
           area,
+          currentInstitution,
         },
         { new: true }
       ).select('-password -__v');
@@ -360,7 +384,7 @@ const sendmailToUser = async (mailTo, verificationLink) => {
   );
 
   try {
-    return await transporter.sendMail({
+    return await tghg.sendMail({
       from: process.env.MAIL_USER,
       to: mailTo,
       subject: 'BoiExchange - Reset Password',

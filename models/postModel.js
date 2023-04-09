@@ -19,7 +19,7 @@ const postSchema = mongoose.Schema(
     },
     price: {
       type: Number,
-      default: 0,
+      required: true,
     },
     image1: {
       type: String,
@@ -43,11 +43,9 @@ const postSchema = mongoose.Schema(
       type: String,
       required: true,
     },
-    lat: {
-      type: Number,
-    },
-    long: {
-      type: Number,
+    currentInstitution: {
+      type: String,
+      required: true,
     },
     enableSellOffer: {
       type: Boolean,
@@ -55,7 +53,7 @@ const postSchema = mongoose.Schema(
     },
     enableExchangeOffer: {
       type: Boolean,
-      default: true,
+      default: false,
     },
     isActive: {
       type: Boolean,
