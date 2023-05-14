@@ -6,12 +6,10 @@ const { v4: uuidv4 } = require('uuid');
 const S3 = require('aws-sdk/clients/s3');
 const AWS = require('aws-sdk');
 
-var nodemailer = require('nodemailer');
-var smtpTransport = require('nodemailer-smtp-transport');
-
 const User = require('../models/userModel');
 const Notification = require('../models/notificationModel');
 const { fileUploadToAwsS3 } = require('../middlewares/fileUpload');
+const { sendMailToUser } = require('../helper');
 
 /*
   @api:       POST /api/users/login/
@@ -292,11 +290,15 @@ const resetPasswordLink = async (req, res, next) => {
         resetTokenExpiry: new Date(new Date().getTime() + 15 * 60000),
       });
 
-      const mailSendResponse = await sendmailToUser(
+      const verificationLink = `${process.env.FRONT_END_URL_PROD}/managePassword/setNew?user=${user._id}&resetToken=${resetToken}`;
+
+      const mailBody = `<html><body><h2>Reset your password </h2><p>Click on the below link to reset your password</p><p><a href=${verificationLink} target="_blank">Reset Password</a></p></body></html>`;
+
+      const mailSendResponse = await sendMailToUser(
         user.email,
-        `${process.env.FRONT_END_URL_PROD}/managePassword/setNew?user=${user._id}&resetToken=${resetToken}`
+        mailBody,
+        'BoiExchange - Reset Password'
       );
-      console.log(mailSendResponse);
 
       if (mailSendResponse.messageId) {
         res.status(200).json({
@@ -367,32 +369,6 @@ const generateToken = (id) => {
 const encriptPassword = (password) => {
   const saltRounds = 10;
   return bcrypt.hashSync(password, saltRounds);
-};
-
-const sendmailToUser = async (mailTo, verificationLink) => {
-  const mailBody = `<html><body><h2>Reset your password </h2><p>Click on the below link to reset your password</p><p><a href=${verificationLink} target="_blank">Reset Password</a></p></body></html>`;
-
-  const transporter = nodemailer.createTransport(
-    smtpTransport({
-      service: 'gmail',
-      host: 'smtp.gmail.com',
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
-      },
-    })
-  );
-
-  try {
-    return await tghg.sendMail({
-      from: process.env.MAIL_USER,
-      to: mailTo,
-      subject: 'BoiExchange - Reset Password',
-      html: mailBody,
-    });
-  } catch (err) {
-    return err;
-  }
 };
 
 // Exports //

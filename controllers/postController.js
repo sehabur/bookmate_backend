@@ -19,71 +19,71 @@ const {
 */
 
 const getPosts = async (req, res, next) => {
-  // try {
-  const { type, user, limit } = url.parse(req.url, true).query;
+  try {
+    const { type, user, limit } = url.parse(req.url, true).query;
 
-  const userId = user === '0' ? '627bb5ef35ffb019b973d811' : user; // some random fake id //
+    const userId = user === '0' ? '627bb5ef35ffb019b973d811' : user; // some random fake id //
 
-  let posts;
-  if (type === 'findpost') {
-    posts = await Post.find({
-      user: { $ne: userId },
-      isActive: true,
-    })
-      .select({ __v: 0 })
-      .sort({ updatedAt: 'desc' })
-      .limit(limit);
-  } else if (type === 'homepage') {
-    const latestPosts = await Post.find({
-      user: { $ne: userId },
-      isActive: true,
-    })
-      .select({ __v: 0 })
-      .sort({ updatedAt: 'desc' })
-      .limit(limit);
-
-    let nearestPosts = null;
-    let institutionPosts = null;
-
-    if (user !== '0') {
-      const requestUser = await User.findById(userId);
-
-      nearestPosts = await Post.find({
+    let posts;
+    if (type === 'findpost') {
+      posts = await Post.find({
         user: { $ne: userId },
         isActive: true,
-        area: requestUser.area,
+      })
+        .select({ __v: 0 })
+        .sort({ updatedAt: 'desc' })
+        .limit(limit);
+    } else if (type === 'homepage') {
+      const latestPosts = await Post.find({
+        user: { $ne: userId },
+        isActive: true,
       })
         .select({ __v: 0 })
         .sort({ updatedAt: 'desc' })
         .limit(limit);
 
-      institutionPosts = await Post.find({
-        user: { $ne: userId },
-        isActive: true,
-        currentInstitution: requestUser.currentInstitution || '',
-      })
-        .select({ __v: 0 })
-        .sort({ updatedAt: 'desc' })
-        .limit(limit);
+      let nearestPosts = null;
+      let institutionPosts = null;
+
+      if (user !== '0') {
+        const requestUser = await User.findById(userId);
+
+        nearestPosts = await Post.find({
+          user: { $ne: userId },
+          isActive: true,
+          area: requestUser.area,
+        })
+          .select({ __v: 0 })
+          .sort({ updatedAt: 'desc' })
+          .limit(60);
+
+        institutionPosts = await Post.find({
+          user: { $ne: userId },
+          isActive: true,
+          currentInstitution: requestUser.currentInstitution || '',
+        })
+          .select({ __v: 0 })
+          .sort({ updatedAt: 'desc' })
+          .limit(60);
+      }
+
+      posts = {
+        latestPosts,
+        nearestPosts,
+        institutionPosts,
+      };
     }
 
-    posts = {
-      latestPosts,
-      nearestPosts,
-      institutionPosts,
-    };
-  }
-
-  if (posts) {
-    res.json({ posts });
-  } else {
-    const error = createError(404, 'No Posts Found');
+    if (posts) {
+      res.json({ posts });
+    } else {
+      const error = createError(404, 'No Posts Found');
+      next(error);
+    }
+  } catch (err) {
+    const error = createError(500, 'No Posts Found');
     next(error);
   }
-  // } catch (err) {
-  //   const error = createError(500, 'No Posts Found');
-  //   next(error);
-  // }
 };
 
 /*
@@ -94,7 +94,7 @@ const getPosts = async (req, res, next) => {
 const getPostsByQuery = async (req, res, next) => {
   try {
     const {
-      user: userId,
+      user,
       limit,
       date: sortByDate,
       price: sortByPrice,
@@ -105,7 +105,10 @@ const getPostsByQuery = async (req, res, next) => {
       sellOffer,
       search,
       category,
+      currentInstitution,
     } = url.parse(req.url, true).query;
+
+    const userId = user === '0' ? '627bb5ef35ffb019b973d811' : user; // some random fake id //
 
     let secondaryFilter = {};
 
@@ -121,18 +124,18 @@ const getPostsByQuery = async (req, res, next) => {
       secondaryFilter.category = category.replace('AND', '&');
     }
 
-    if (!(exchangeOffer && sellOffer)) {
-      if (exchangeOffer) {
-        secondaryFilter.enableExchangeOffer = true;
-      } else {
-        secondaryFilter.enableExchangeOffer = false;
-      }
+    if (currentInstitution) {
+      secondaryFilter.currentInstitution = currentInstitution.replace(
+        'AND',
+        '&'
+      );
+    }
 
-      if (sellOffer) {
-        secondaryFilter.enableSellOffer = true;
-      } else {
-        secondaryFilter.enableSellOffer = false;
-      }
+    if (exchangeOffer) {
+      secondaryFilter.enableExchangeOffer = true;
+    }
+    if (sellOffer) {
+      secondaryFilter.enableSellOffer = true;
     }
 
     if (search) {

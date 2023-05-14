@@ -6,6 +6,7 @@ const Notification = require('../models/notificationModel');
 const Order = require('../models/orderModel');
 const Post = require('../models/postModel');
 const User = require('../models/userModel');
+const { sendMailToUser } = require('../helper');
 
 /*
   @api:       GET /api/orders/:id
@@ -107,7 +108,7 @@ const requestOrder = async (req, res, next) => {
 
     const order = new Order({
       requestor: req.user.id,
-      requestedTo,
+      requestedTo: requestedTo._id,
       orderItem,
       price,
       requestTime,
@@ -122,7 +123,7 @@ const requestOrder = async (req, res, next) => {
       text: `${req.user.shopName} has sent you a ${
         offerType === 'buy' ? 'purchase' : offerType
       } request for ${bookTitle}`,
-      receiver: requestedTo,
+      receiver: requestedTo._id,
       sender: req.user.id,
       order: createdOrder._id,
       post: orderItem,
@@ -130,9 +131,29 @@ const requestOrder = async (req, res, next) => {
     });
     await notification.save();
 
+    const mailBody = `
+      <html>
+        <body>
+          <h3>Hello ${requestedTo.shopName}!</h3>
+          <h3>You have a new request</h3>
+          <p>"${req.user.shopName}" has sent you ${
+      offerType === 'buy' ? 'purchase' : offerType
+    } request for your book "${bookTitle}".</p>
+          <br/>
+          <p>Visit <a href="${
+            process.env.FRONT_END_URL_PROD
+          }/">BoiExchange.com</a> to respond.</p>
+        </body>
+      </html>
+    `;
+
+    await sendMailToUser(requestedTo.email, mailBody, 'Book request for you');
+
     res
       .status(201)
       .json({ message: 'Order created successfully', createdOrder });
+
+    // res.status(201).json(resp);
   } catch (err) {
     const error = createError(400, err.message);
     next(error);
@@ -145,70 +166,88 @@ const requestOrder = async (req, res, next) => {
   @access:    private
 */
 const acceptOrder = async (req, res, next) => {
-  // try {
-  const { acceptTime, requestStatus, postId, bookTitle } = req.body;
+  try {
+    const { acceptTime, requestStatus, postId, bookTitle } = req.body;
 
-  const updatedOrder = await Order.findByIdAndUpdate(
-    req.params.id,
-    {
-      acceptTime,
-      requestStatus,
-    },
-    {
-      new: true,
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        acceptTime,
+        requestStatus,
+      },
+      {
+        new: true,
+      }
+    ).populate('requestor', 'email shopName');
+
+    await Notification.findOneAndUpdate(
+      { type: 'reqSent', order: req.params.id },
+      { isActive: false }
+    );
+
+    if (requestStatus === 'accepted') {
+      await User.findByIdAndUpdate(req.user.id, {
+        $inc: { exchangedCount: 1 },
+      });
+
+      await Post.findByIdAndUpdate(postId, {
+        isExchanged: true,
+        isActive: false,
+      });
+
+      // Create a new conversation //
+      const newConversation = new Conversation({
+        chatId: uuidv4(),
+        participants: [updatedOrder.requestedTo, updatedOrder.requestor._id],
+        lastActivity: new Date(),
+      });
+      console.log(newConversation);
+      await newConversation.save();
     }
-  );
 
-  await Notification.findOneAndUpdate(
-    { type: 'reqSent', order: req.params.id },
-    { isActive: false }
-  );
-
-  console.log(requestStatus);
-
-  if (requestStatus === 'accepted') {
-    await User.findByIdAndUpdate(req.user.id, {
-      $inc: { exchangedCount: 1 },
+    // Create notification //
+    const notification = new Notification({
+      type: 'reqAck',
+      text: `${req.user.shopName} has ${requestStatus} your ${
+        updatedOrder.offerType === 'buy' ? 'purchase' : updatedOrder.offerType
+      } request for ${bookTitle}. Go to message section to chat with ${
+        req.user.shopName
+      }`,
+      receiver: updatedOrder.requestor._id,
+      sender: updatedOrder.requestedTo,
+      order: updatedOrder._id,
+      post: updatedOrder.orderItem,
+      bookTitle,
     });
+    await notification.save();
 
-    await Post.findByIdAndUpdate(postId, {
-      isExchanged: true,
-      isActive: false,
-    });
-
-    console.log(updatedOrder);
-
-    // Create a new conversation //
-    const newConversation = new Conversation({
-      chatId: uuidv4(),
-      participants: [updatedOrder.requestedTo, updatedOrder.requestor],
-      lastActivity: new Date(),
-    });
-    console.log(newConversation);
-    await newConversation.save();
-  }
-
-  // Create notification //
-  const notification = new Notification({
-    type: 'reqAck',
-    text: `${req.user.shopName} has ${requestStatus} your ${
+    const mailBody = `
+      <html>
+        <body>
+          <h3>${requestStatus === 'accepted' ? 'Congratulations' : 'Hello'} ${
+      updatedOrder.requestor.shopName
+    }!</h3>
+          <p>"${req.user.shopName}" has ${requestStatus} your ${
       updatedOrder.offerType === 'buy' ? 'purchase' : updatedOrder.offerType
-    } request for ${bookTitle}. Go to message section to chat with ${
-      req.user.shopName
-    }`,
-    receiver: updatedOrder.requestor,
-    sender: updatedOrder.requestedTo,
-    order: updatedOrder._id,
-    post: updatedOrder.orderItem,
-    bookTitle,
-  });
-  await notification.save();
+    } request for "${bookTitle}". Contact with him/her to collect your book.</p>
+          <br/>
+          <p>Visit <a href="${
+            process.env.FRONT_END_URL_PROD
+          }/">BoiExchange.com</a> for more.</p>
+        </body>
+      </html>
+    `;
+    await sendMailToUser(
+      updatedOrder.requestor.email,
+      mailBody,
+      `Book request ${requestStatus}`
+    );
 
-  res.status(201).json({ message: 'Order accepted successfully' });
-  // } catch (err) {
-  //   const error = createError(400, err.message);
-  //   next(error);
-  // }
+    res.status(201).json({ message: 'Order responded successfully' });
+  } catch (err) {
+    const error = createError(400, err.message);
+    next(error);
+  }
 };
 
 /*
