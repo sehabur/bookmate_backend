@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const fs = require('fs');
 // var expressWinston = require('express-winston');
 // var winston = require('winston'); // for transports.Console
 require('winston-mongodb');
@@ -31,6 +32,29 @@ const {
 
 var app = express();
 dotenv.config();
+
+let privateKey, certificate, ca;
+try {
+  // Certificate
+  privateKey = fs.readFileSync(
+    '/etc/letsencrypt/live/boiexchange.com/privkey.pem',
+    'utf8'
+  );
+  certificate = fs.readFileSync(
+    '/etc/letsencrypt/live/boiexchange.com/cert.pem',
+    'utf8'
+  );
+  ca = fs.readFileSync(
+    '/etc/letsencrypt/live/boiexchange.com/chain.pem',
+    'utf8'
+  );
+} catch (error) {}
+
+const credentials = {
+  key: privateKey,
+  cert: certificate,
+  ca: ca,
+};
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -85,7 +109,7 @@ app.use(ErrorHanlder);
 /**
  * Create HTTP server.
  */
-var server = http.createServer(app);
+var server = http.createServer(credentials, app);
 
 // Initiate Socket.io //
 initSocketIo(server);

@@ -34,6 +34,7 @@ const getPosts = async (req, res, next) => {
         .sort({ updatedAt: 'desc' })
         .limit(limit);
     } else if (type === 'homepage') {
+      lmmklmknmknffdfdf;
       const latestPosts = await Post.find({
         user: { $ne: userId },
         isActive: true,
