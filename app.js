@@ -143,7 +143,7 @@ mongoose
 /**
  * Listen on provided port, on all network interfaces.
  */
-server.listen(process.env.PORT || 5000, () => {
+server.listen(443, () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });
 
