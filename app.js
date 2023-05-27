@@ -46,6 +46,8 @@ certificate = fs.readFileSync(
 );
 ca = fs.readFileSync('/etc/letsencrypt/live/boiexchange.com/chain.pem', 'utf8');
 
+console.log(privateKey);
+
 const credentials = {
   key: privateKey,
   cert: certificate,

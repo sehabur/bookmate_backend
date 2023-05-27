@@ -34,7 +34,6 @@ const getPosts = async (req, res, next) => {
         .sort({ updatedAt: 'desc' })
         .limit(limit);
     } else if (type === 'homepage') {
-      lmmklmknmknffdfdf;
       const latestPosts = await Post.find({
         user: { $ne: userId },
         isActive: true,
@@ -567,6 +566,11 @@ const deleteFileByKey = async (req, res, next) => {
 const uploadedImageName = async (file) => {
   try {
     const imageUploadResult = await fileUploadToAwsS3(file);
+
+    if (!imageUploadResult) {
+      const error = createError(400, 'Image upload failed');
+      next(error);
+    }
     return imageUploadResult.Key;
   } catch (err) {
     const error = createError(400, err.message);
