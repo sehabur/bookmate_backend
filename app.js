@@ -2,7 +2,7 @@
 const express = require('express');
 const path = require('path');
 const dotenv = require('dotenv');
-const http = require('http');
+const https = require('https');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fs = require('fs');
@@ -108,7 +108,7 @@ app.use(ErrorHanlder);
 /**
  * Create HTTP server.
  */
-var server = http.createServer(credentials, app);
+var server = https.createServer(credentials, app);
 
 // Initiate Socket.io //
 initSocketIo(server);
@@ -144,7 +144,7 @@ mongoose
 /**
  * Listen on provided port, on all network interfaces.
  */
-server.listen(process.env.PORT || 5000, () => {
+server.listen(8443, () => {
   console.log(`Server running on port ${process.env.PORT}`);
 });
 
