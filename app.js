@@ -36,15 +36,15 @@ dotenv.config();
 let privateKey, certificate, ca;
 
 // Certificate
-privateKey = fs.readFileSync(
-  '/etc/letsencrypt/live/boiexchange.com/privkey.pem',
-  'utf8'
-);
-certificate = fs.readFileSync(
-  '/etc/letsencrypt/live/boiexchange.com/cert.pem',
-  'utf8'
-);
-ca = fs.readFileSync('/etc/letsencrypt/live/boiexchange.com/chain.pem', 'utf8');
+// privateKey = fs.readFileSync(
+//   '/etc/letsencrypt/live/boiexchange.com/privkey.pem',
+//   'utf8'
+// );
+// certificate = fs.readFileSync(
+//   '/etc/letsencrypt/live/boiexchange.com/cert.pem',
+//   'utf8'
+// );
+// ca = fs.readFileSync('/etc/letsencrypt/live/boiexchange.com/chain.pem', 'utf8');
 
 console.log(privateKey);
 
@@ -56,7 +56,7 @@ const credentials = {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-// app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
 app.use((req, res, next) => {
