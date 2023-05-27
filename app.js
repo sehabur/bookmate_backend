@@ -52,6 +52,7 @@ const credentials = {
   key: privateKey,
   cert: certificate,
   ca: ca,
+  rejectUnauthorized: false,
 };
 
 app.use(express.json());
